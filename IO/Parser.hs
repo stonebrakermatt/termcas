@@ -21,6 +21,8 @@ data ParseError
     | UnexpectedEndOfInput
     | ExpectedExpression [Char]
     | UnexpectedInput [Char]
+    | TooManyArguments
+    | UnknownArgument [Char]
     deriving (Show, Read)
 
 {- Parser type for simplpifying type signatures -}
@@ -240,14 +242,28 @@ remove_while f [] = []
 remove_while f (l : lst) = if f l
     then remove_while f lst
     else l : lst
+remove_spaces :: [Char] -> [Char]
+remove_spaces input = 
+    let reversed = remove_while (\l -> (l == ' ') || (l == '\t')) (reverse input)
+    in remove_while (\l -> (l == ' ') || (l == '\t')) (reverse reversed)
+split_spaces :: [Char] -> [[Char]]
+split_spaces input = 
+    let split_spaces' [] [] terms = reverse terms
+        split_spaces' [] current terms = reverse (current : terms)
+        split_spaces' (h : t) current terms = if (h == ' ') || (h == '\t')
+            then if null current
+                then split_spaces' t [] terms
+                else split_spaces' t [] ( reverse current : terms)
+            else split_spaces' t (h : current) terms
+    in split_spaces' input [] []
 
 {- Parse user input into a command -}
 parse_input :: [Char] -> Either D.Command ParseError
 parse_input input
-    | remove_while (\l -> (l == ' ') && (l == '\t')) input == "\\about" = Left (D.Builtin D.About)
-    | remove_while (\l -> (l == ' ') && (l == '\t')) input == "\\bindings" = Left (D.Builtin D.Bindings)
-    | remove_while (\l -> (l == ' ') && (l == '\t')) input == "\\exit" = Left (D.Builtin D.Exit)
-    | remove_while (\l -> (l == ' ') && (l == '\t')) input == "\\help" = Left (D.Builtin D.Help)
+    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\about" = Left (D.Builtin D.About)
+    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\bindings" = Left (D.Builtin D.Bindings)
+    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\exit" = Left (D.Builtin D.Exit)
+    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\help" = Left (D.Builtin D.Help)
     | otherwise =
         let lexed_input = L.lex input
         in case split_equals lexed_input of

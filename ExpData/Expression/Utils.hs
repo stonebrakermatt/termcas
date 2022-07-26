@@ -6,6 +6,7 @@
 module ExpData.Expression.Utils where
 import Data.List
 import qualified ExpData.Expression.Type as E
+import qualified ExpData.Dependency.Type as D
 
 
 
@@ -28,10 +29,10 @@ substitute_args (a1 : argvars) (a2 : arglist) expr = case a1 of
     E.Id x -> substitute_args argvars arglist (substitute x a2 expr)
     _ -> expr
 
-get_dependencies :: E.Expression -> [E.ExpressionDependency]
+get_dependencies :: E.Expression -> [D.ExpressionDependency]
 get_dependencies (E.Negate e) = get_dependencies e
 get_dependencies (E.Binary o e1 e2) = get_dependencies e1 `union` get_dependencies e2
 get_dependencies (E.Parenthetical e) = get_dependencies e
-get_dependencies (E.FCall f args) = (f, E.F 1) : foldr (++) [] (map get_dependencies args)
-get_dependencies (E.Id x) = [(x, E.V)]
+get_dependencies (E.FCall f args) = (f, D.F 1) : foldr (++) [] (map get_dependencies args)
+get_dependencies (E.Id x) = [(x, D.V)]
 get_dependencies (E.Num n) = []
