@@ -12,6 +12,7 @@ import qualified ExpData.Expression.Type as E
 
 
 
+{- Function to get the dependencies of an expression -}
 get_dependencies :: E.Expression -> [D.ExpressionDependency]
 get_dependencies (E.Negate e) = get_dependencies e
 get_dependencies (E.Binary o e1 e2) = get_dependencies e1 `L.union` get_dependencies e2

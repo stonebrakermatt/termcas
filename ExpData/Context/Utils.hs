@@ -14,9 +14,9 @@ import qualified ExpData.Expression.Type as E
 
 
 
+{- Simple helper functions -}
 create_context_entry :: E.Expression -> E.Expression -> C.ContextEntry
 create_context_entry e1 e2 = (e1, e2)
-
 create_context_key :: E.Expression -> Maybe D.ExpressionDependency
 create_context_key (E.Id x) = Just (x, D.V)
 create_context_key (E.FCall f args)
@@ -25,5 +25,6 @@ create_context_key (E.FCall f args)
     | otherwise = Nothing
 create_context_key _ = Nothing
 
+{- Insert a new entry into the context -}
 context_insert :: C.Context -> (D.ExpressionDependency, C.ContextEntry) -> C.Context
 context_insert context (key, entry) = M.insert key entry context

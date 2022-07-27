@@ -6,6 +6,7 @@
 module Main where
 
 {- System imports -}
+import Prelude
 import System.Environment
 import System.IO
 
@@ -34,6 +35,6 @@ import qualified ExpData.Expression.Utils as ExpExpressionUtils
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    (putStrLn . show) (IOParser.split_spaces "ab cd ed")
+    (putStrLn . show) ((IOParser.split_spaces . IOParser.remove_spaces) " \\help 2")
 
 

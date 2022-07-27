@@ -39,9 +39,3 @@ instance Show InputToken where
     show (DelimiterToken str) = "<del:" ++ str ++ ">"
     show (SpaceToken str) = "<sp:" ++ str ++ ">"
     show (BadInputToken str) = "<err:" ++ str ++ ">"
-
-has_bad_input :: [InputToken] -> (Bool, Maybe [Char])
-has_bad_input [] = (False, Nothing)
-has_bas_input (t : tokens) = case t of
-    BadInputToken b -> (True, Just b)
-    _ -> has_bad_input tokens

@@ -18,9 +18,9 @@ main = repl 0 C.empty_context
 
 {- Helper for spacing the prompt -}
 prompt_spaces :: Int -> [Char]
-prompt_spaces n = if n > 999
+prompt_spaces n = if n > 9999999
     then " "
-    else take (4 - length (show n)) (repeat ' ')
+    else take (8 - length (show n)) (repeat ' ')
 
 {- Main program loop -}
 repl :: Int -> C.Context -> IO ()
@@ -43,9 +43,16 @@ repl n context = do
                     AssignFailure e -> do
                         (putStrLn . show) e
                         repl n context
+                E.Id i -> case handle_assign_variable i e2 context of
+                    AssignSuccess kvpair -> do
+                        (putStrLn . show) kvpair
+                        repl (n + 1) (context `U.context_insert` kvpair)
+                    AssignFailure e -> do
+                        (putStrLn . show) e
+                        repl n context
                 _ -> do
-                    putStrLn ("out: " ++ show cmd)
-                    repl (n + 1) context
+                    putStrLn ("Error occurred while parsing input: " ++ show LValueError)
+                    repl n context
             _ -> do
                 putStrLn ("out: " ++ show cmd)
                 repl (n + 1) context

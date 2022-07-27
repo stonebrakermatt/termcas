@@ -249,23 +249,44 @@ remove_spaces input =
 split_spaces :: [Char] -> [[Char]]
 split_spaces input = 
     let split_spaces' [] [] terms = reverse terms
-        split_spaces' [] current terms = reverse (current : terms)
+        split_spaces' [] current terms = reverse (reverse current : terms)
         split_spaces' (h : t) current terms = if (h == ' ') || (h == '\t')
             then if null current
                 then split_spaces' t [] terms
-                else split_spaces' t [] ( reverse current : terms)
+                else split_spaces' t [] (reverse current : terms)
             else split_spaces' t (h : current) terms
     in split_spaces' input [] []
 
+parse_builtin :: [Char] -> Maybe D.Command
+parse_builtin input = 
+    let lst = (split_spaces . remove_spaces) input
+    in case lst of 
+        [] -> Nothing
+        cmd : [] -> if cmd == "\\about"
+            then Just (D.Builtin D.About)
+            else if cmd == "\\bindings"
+                then Just (D.Builtin D.Bindings)
+                else if cmd == "\\exit"
+                    then Just (D.Builtin D.Exit)
+                    else if cmd == "\\help"
+                        then Just (D.Builtin (D.Help 0))
+                        else Nothing
+        cmd : arg : [] -> if cmd == "\\help"
+            then if arg == "0"
+                then Just (D.Builtin (D.Help 0))
+                else if arg == "1"
+                    then Just (D.Builtin (D.Help 1))
+                    else if arg == "2"
+                        then Just (D.Builtin (D.Help 2))
+                        else Nothing
+            else Nothing
+        _ -> Nothing
+
 {- Parse user input into a command -}
 parse_input :: [Char] -> Either D.Command ParseError
-parse_input input
-    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\about" = Left (D.Builtin D.About)
-    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\bindings" = Left (D.Builtin D.Bindings)
-    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\exit" = Left (D.Builtin D.Exit)
-    | remove_while (\l -> (l == ' ') || (l == '\t')) input == "\\help" = Left (D.Builtin D.Help)
-    | otherwise =
-        let lexed_input = L.lex input
+parse_input input = case parse_builtin input of
+    Just cmd -> Left cmd
+    Nothing -> let lexed_input = L.lex input
         in case split_equals lexed_input of
             Nothing -> case parse_expr lexed_input of
                 Left (e, _) -> Left (D.Eval e)
