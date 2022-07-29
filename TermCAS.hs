@@ -28,7 +28,7 @@ repl n context = do
     putStr (show n ++ prompt_spaces n ++ "=> ")
     hFlush stdout
     str <- getLine
-    case P.parse_input str of
+    case P.parse str of
         Left cmd -> case cmd of
             D.Builtin b -> if b == D.Exit
                 then return ()

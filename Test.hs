@@ -35,6 +35,7 @@ import qualified ExpData.Expression.Utils as ExpExpressionUtils
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    (putStrLn . show) ((IOParser.split_spaces . IOParser.remove_spaces) " \\help 2")
+    print (IOLexer.lex "f(x) = x^2")
+    print (IOParser.parse "f(x) = x^2")
 
 

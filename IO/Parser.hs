@@ -283,8 +283,8 @@ parse_builtin input =
         _ -> Nothing
 
 {- Parse user input into a command -}
-parse_input :: [Char] -> Either D.Command ParseError
-parse_input input = case parse_builtin input of
+parse :: [Char] -> Either D.Command ParseError
+parse input = case parse_builtin input of
     Just cmd -> Left cmd
     Nothing -> let lexed_input = L.lex input
         in case split_equals lexed_input of
