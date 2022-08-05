@@ -13,7 +13,8 @@ import qualified IO.Utils.Regex.Keywords as K
 
 {- Expression type -}
 data Expression
-    = Negate Expression
+    = Factorial Expression
+    | Negate Expression
     | Binary O.Op Expression Expression
     | Parenthetical Expression
     | FCall [Char] [Expression]
@@ -33,6 +34,7 @@ add_commas (s1 : s2 : strs) revStr = add_commas (s2 : strs) ("," ++ reverse s1 +
 
 {- How to print expressions -}
 instance Show Expression where
+    show (Factorial e) = show e ++ "!"
     show (Negate e) = case e of
         Negate e' -> show e'
         Binary o e1 e2 -> "-(" ++ show e ++ ")"

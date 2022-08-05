@@ -6,7 +6,6 @@
 module IO.Parser where
 import qualified ExpData.Expression.Type as E
 import qualified ExpData.Expression.Operator as O
-import qualified IO.Command.Type as D
 import qualified IO.Utils.Lexer as L
 import qualified IO.Utils.Token as T
 
@@ -135,14 +134,26 @@ parse_expr input = case parse_operand 0 input of
 {- Rules:
  - Expr -> AAtail
  - A -> BBtail
- - B -> CCtail
+ - B -> -CCtail | CCtail
  - C -> DDtail -}
 parse_operand :: Int -> Parser E.Expression
 parse_operand prec input = if prec < 4
-    then
-        parse_operand (prec + 1) input `pbind` (\(e, input1) ->
-        parse_optail (prec + 1) e input1 `pbind` (\(pairs, input2) ->
-        build_tail pairs `pbind` (\exp -> Left (exp, input2))))
+    then if prec == 2
+        then
+            next_token input `pbind` (\(t, input1) -> 
+            case t of 
+                T.OpToken "-" -> 
+                    parse_operand (prec + 1) input1 `pbind` (\(e, input2) ->
+                    parse_optail (prec + 1) (E.Negate e) input2 `pbind` (\(pairs, input3) ->
+                    build_tail pairs `pbind` (\exp -> Left (exp,  input3))))
+                _ ->
+                    parse_operand (prec + 1) input `pbind` (\(e, input2) ->
+                    parse_optail (prec + 1) e input2 `pbind` (\(pairs, input3) ->
+                    build_tail pairs `pbind` (\exp -> Left (exp,  input3)))))
+        else 
+            parse_operand (prec + 1) input `pbind` (\(e, input1) ->
+            parse_optail (prec + 1) e input1 `pbind` (\(pairs, input2) ->
+            build_tail pairs `pbind` (\exp -> Left (exp, input2))))
     else
         parse_d input
 
@@ -161,19 +172,24 @@ parse_optail prec exp input =
             Left ((reverse exps, reverse ops), input))
     in parse_optail' input ([exp], [])
 
-{- Rule: D -> \-D | F -}
-parse_d :: Parser E.Expression
-parse_d input =
-    next_token input `pbind` (\(t, input1) ->
-    case t of
-        T.OpToken "-" ->
-            parse_d input1 `pbind` (\(e, input2) ->
-            Left (E.Negate e, input2))
-        _ -> parse_f input)
 
-{- Rule: F -> IdOrCall | Num | Paren -}
-parse_f :: Parser E.Expression
-parse_f input =
+parse_factorial :: E.Expression -> Parser E.Expression
+parse_factorial exp input = 
+    if input == []
+        then Left (exp, [])
+        else next_token input `pbind` (\(t, input1) ->
+            case t of
+                T.OpToken "!" -> parse_factorial (E.Factorial exp) input1
+                _ -> Left (exp, input)) 
+
+parse_d :: Parser E.Expression
+parse_d input = 
+    parse_term input `pbind` (\(exp, input1) ->
+    parse_factorial exp input1)
+
+{- Rule: D -> IdOrCall | Num | Paren -}
+parse_term :: Parser E.Expression
+parse_term input =
     parse_id_or_call input `pfails` (\() ->
     parse_num input `pfails` (\() ->
     parse_parens input))
@@ -257,6 +273,7 @@ split_spaces input =
             else split_spaces' t (h : current) terms
     in split_spaces' input [] []
 
+{- Parse a builtin command 
 parse_builtin :: [Char] -> Maybe D.Command
 parse_builtin input = 
     let lst = (split_spaces . remove_spaces) input
@@ -280,9 +297,11 @@ parse_builtin input =
                         then Just (D.Builtin (D.Help 2))
                         else Nothing
             else Nothing
-        _ -> Nothing
+        _ -> Nothing -}
 
-{- Parse user input into a command -}
+
+
+{- Parse user input into a command 
 parse :: [Char] -> Either D.Command ParseError
 parse input = case parse_builtin input of
     Just cmd -> Left cmd
@@ -294,4 +313,4 @@ parse input = case parse_builtin input of
             Just (l, r) -> case (parse_expr l, parse_expr r) of
                 (Left (lvalue, _), Left (rvalue, _)) -> Left (D.Assign lvalue rvalue)
                 (Right e, _) -> Right e
-                (_, Right e) -> Right e
+                (_, Right e) -> Right e -}

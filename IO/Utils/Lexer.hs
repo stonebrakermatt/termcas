@@ -17,19 +17,19 @@ import qualified IO.Utils.Token as T
 type Lexer a = [a] -> [T.InputToken]
 
 {- Types for matching to simplify type signatures -}
-type MatchContext a = [(R.Regex a, [a] -> T.InputToken)]
-type MatchResult a = ([a], T.InputToken)
+type MatchContext = [(R.Regex, [Char] -> T.InputToken)]
+type MatchResult = ([Char], T.InputToken)
 
 
 
 {- A type for storing the list of pairs of regexes 
  - and matching constructors -}
-match_context :: MatchContext Char
+match_context :: MatchContext
 match_context = zip G.language_regexes T.token_constructors
 
 {- Matches a single token, returning the token
  - and the remaining input to be lexed -}
-match :: [Char] -> MatchResult Char
+match :: [Char] -> MatchResult
 match user_input =
     let match' user_input [] = (user_input, T.SpaceToken "")
         match' user_input ((re, tokenizer) : match_context) =

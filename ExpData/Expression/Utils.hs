@@ -6,7 +6,6 @@
 module ExpData.Expression.Utils where
 import Data.List
 import qualified ExpData.Expression.Type as E
-import qualified ExpData.Dependency.Type as D
 
 
 

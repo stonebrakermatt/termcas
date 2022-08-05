@@ -15,7 +15,7 @@ import qualified IO.Utils.Regex.Type as R
  - against user input. If the function does not return nothing, 
  - the tuple consists first of the matching part of the input and
  - second of the remaining input to be lexed -}
-capture :: (Eq a) => [a] -> R.Regex a -> Maybe ([a], [a])
+capture :: [Char] -> R.Regex -> Maybe ([Char], [Char])
 
 {- Matches a list of regexes in sequence;
  - since it works in sequence, the RegexAnd of
