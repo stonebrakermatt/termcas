@@ -13,6 +13,12 @@ import qualified IO.Utils.Regex.Type as RE
 
 
 
+{- Regular expression for builtin commands -}
+regex_command :: RE.Regex
+regex_command = RE.RegexAnd
+    [ RE.RegexConst '\\'
+    , RE.RegexPlus (RE.RegexInSet ['a'..'z']) ]
+
 {- Regular expression to match digits 1-9 -}
 regex_nonzero_digit :: RE.Regex
 regex_nonzero_digit = RE.RegexInSet ['1'..'9']
@@ -112,7 +118,8 @@ regex_space = RE.RegexInSet " \t"
 
 {- All regexes for this grammar -}
 language_regexes =
-    [ regex_relation
+    [ regex_command
+    , regex_relation
     , regex_assign
     , regex_delimiter
     , regex_operator

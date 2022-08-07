@@ -28,6 +28,6 @@ import qualified ExpData.Expression.Utils as ExpExpressionUtils
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    print (IOParser.parse_expr (IOLexer.lex "2 = "))
+    print (IOLexer.lex "\\graph f(x) from x = 0 to x = 10")
 
 

@@ -12,7 +12,8 @@ module IO.Utils.Token where
 
 {- Token type for lexing user input -}
 data InputToken
-    = RelationToken [Char]
+    = CommandToken [Char]
+    | RelationToken [Char]
     | AssignToken [Char]
     | IdToken [Char]
     | OpToken [Char]
@@ -26,7 +27,8 @@ data InputToken
 
 {- Token constructors. See Lexer for its use -}
 token_constructors =
-    [ RelationToken
+    [ CommandToken
+    , RelationToken
     , AssignToken
     , DelimiterToken
     , OpToken
@@ -37,6 +39,7 @@ token_constructors =
 
 {- Define how tokens are printed -}
 instance Show InputToken where
+    show (CommandToken str) = "<com:\"" ++ str ++ "\">"
     show (RelationToken str) = "<rel:\"" ++ str ++ "\">"
     show (AssignToken str) = "<ass:\"" ++ str ++ "\">"
     show (IdToken str) = "<id:\"" ++ str ++ "\">"

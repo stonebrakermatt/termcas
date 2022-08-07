@@ -3,7 +3,7 @@
  - (c) 2022 Matt Stonebraker
  - 
  - File for lexing user input -}
-module IO.Utils.Lexer where
+module IO.Utils.Lexer (IO.Utils.Lexer.lex) where
 import qualified IO.Utils.Capture as Capture
 import qualified IO.Utils.Regex.GrammarRegexes as REGrammar
 import qualified IO.Utils.Regex.Type as RE
@@ -66,5 +66,5 @@ remove_spaces revtokens =
 
 
 {- Lexes input and removes spaces -}
-lex :: [Char] -> [Token.InputToken]
+lex :: Lexer Char
 lex = remove_spaces . lex_input
