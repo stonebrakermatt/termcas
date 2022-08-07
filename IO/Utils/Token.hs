@@ -13,6 +13,7 @@ module IO.Utils.Token where
 {- Token type for lexing user input -}
 data InputToken
     = RelationToken [Char]
+    | AssignToken [Char]
     | IdToken [Char]
     | OpToken [Char]
     | NumLiteralToken [Char]
@@ -26,6 +27,7 @@ data InputToken
 {- Token constructors. See Lexer for its use -}
 token_constructors =
     [ RelationToken
+    , AssignToken
     , DelimiterToken
     , OpToken
     , NumLiteralToken
@@ -35,10 +37,11 @@ token_constructors =
 
 {- Define how tokens are printed -}
 instance Show InputToken where
-    show (RelationToken str) = "<rel:" ++ str ++ ">"
-    show (IdToken str) = "<id:" ++ str ++ ">"
-    show (OpToken str) = "<op:" ++ str ++ ">"
-    show (NumLiteralToken str) = "<num:" ++ str ++ ">"
-    show (DelimiterToken str) = "<del:" ++ str ++ ">"
-    show (SpaceToken str) = "<sp:" ++ str ++ ">"
-    show (BadInputToken str) = "<err:" ++ str ++ ">"
+    show (RelationToken str) = "<rel:\"" ++ str ++ "\">"
+    show (AssignToken str) = "<ass:\"" ++ str ++ "\">"
+    show (IdToken str) = "<id:\"" ++ str ++ "\">"
+    show (OpToken str) = "<op:\"" ++ str ++ "\">"
+    show (NumLiteralToken str) = "<num:\"" ++ str ++ "\">"
+    show (DelimiterToken str) = "<del:\"" ++ str ++ "\">"
+    show (SpaceToken str) = "<sp:\"" ++ str ++ "\">"
+    show (BadInputToken str) = "<err:\"" ++ str ++ "\">"

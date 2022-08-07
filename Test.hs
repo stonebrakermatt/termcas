@@ -28,6 +28,6 @@ import qualified ExpData.Expression.Utils as ExpExpressionUtils
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    print (IOLexer.lex "2 >= 1")
+    print (IOParser.parse_expr (IOLexer.lex "2 = "))
 
 
