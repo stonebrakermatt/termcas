@@ -19,6 +19,13 @@ regex_command = RE.RegexAnd
     [ RE.RegexConst '\\'
     , RE.RegexPlus (RE.RegexInSet ['a'..'z']) ]
 
+{- Regular expression for keywords -}
+regex_keyword :: RE.Regex
+regex_keyword = RE.RegexOr
+    [ RE.RegexWord "in"
+    , RE.RegexWord "from"
+    , RE.RegexWord "to"]
+
 {- Regular expression to match digits 1-9 -}
 regex_nonzero_digit :: RE.Regex
 regex_nonzero_digit = RE.RegexInSet ['1'..'9']
@@ -58,28 +65,29 @@ regex_number_exponential_part = RE.RegexAnd
  - (negative numbers obtained through negation, which is an
  - operation); supports scientific notation, integers, and floats -}
 regex_number :: RE.Regex
-regex_number = RE.RegexOr
-    ( RE.RegexAnd
-        [ RE.RegexOr
-            [ RE.RegexAnd
-                [ regex_number_integer_part
-                , RE.RegexMaybe regex_number_fractional_part ]
-            , regex_number_fractional_part ]
-        , RE.RegexMaybe regex_number_exponential_part ]
-    : map RE.RegexWord Keywords.constants )
+regex_number = RE.RegexAnd
+    [ RE.RegexOr
+        [ RE.RegexAnd
+            [ regex_number_integer_part
+            , RE.RegexMaybe regex_number_fractional_part ]
+        , regex_number_fractional_part ]
+    , RE.RegexMaybe regex_number_exponential_part ]
+
+{- Regular expression for boolean values -}
+regex_boolean :: RE.Regex
+regex_boolean = RE.RegexOr
+    [ RE.RegexWord "true" 
+    , RE.RegexWord "false"]
 
 {- Regular expression for matching identifiers for
  - variables, functions, etc. -}
 regex_identifier :: RE.Regex
 regex_identifier = RE.RegexPlus (RE.RegexInSet ['a'..'z'])
 
-{- Regular expression for relations -}
-regex_relation :: RE.Regex
-regex_relation = RE.RegexOr
-    [ RE.RegexWord "=="
-    , RE.RegexWord ">="
-    , RE.RegexWord "<="
-    , RE.RegexInSet "<>" ]
+{- Regular expression for matching identifiers for sets,
+ - which are denoted by capital letters -}
+regex_sidentifier :: RE.Regex
+regex_sidentifier = RE.RegexPlus (RE.RegexInSet ['A'..'Z'])
 
 {- Regular expression for assigning -}
 regex_assign :: RE.Regex
@@ -88,7 +96,7 @@ regex_assign = RE.RegexConst '='
 {- Regular expression for matching any delimiters
  - ("=", "(", ")", "{". "}", and "," -- so far!) -}
 regex_delimiter :: RE.Regex
-regex_delimiter = RE.RegexInSet "(){}[],"
+regex_delimiter = RE.RegexInSet "(){}[]:,"
 
 {- Regular expressions for prefix unary minus and
  - postfix factorial and prime notation derivatives -}
@@ -98,11 +106,14 @@ regex_unary_operator = RE.RegexInSet "-!"
 {- Regular expression for parsing binary expressions -}
 regex_binary_operator :: RE.Regex
 regex_binary_operator = RE.RegexOr
-    (RE.RegexInSet "+-*/^" : map RE.RegexWord Keywords.discrete_ops)
-
-{- Regular expression for invalid input -}
-regex_badinput :: RE.Regex
-regex_badinput = RE.RegexNotInSet []
+    (RE.RegexInSet "+-*/^" : map RE.RegexWord Keywords.discrete_ops ++ 
+    [ RE.RegexWord "=="
+    , RE.RegexWord ">="
+    , RE.RegexWord "<="
+    , RE.RegexWord "and"
+    , RE.RegexWord "or"
+    , RE.RegexWord "xor"
+    , RE.RegexInSet "<>" ])
 
 {- Regular expression for operators -}
 regex_operator :: RE.Regex
@@ -114,16 +125,22 @@ regex_operator = RE.RegexOr
 regex_space :: RE.Regex
 regex_space = RE.RegexInSet " \t"
 
+{- Regular expression for invalid input -}
+regex_badinput :: RE.Regex
+regex_badinput = RE.RegexNotInSet []
+
 
 
 {- All regexes for this grammar -}
 language_regexes =
     [ regex_command
-    , regex_relation
+    , regex_keyword
+    , regex_operator
     , regex_assign
     , regex_delimiter
-    , regex_operator
     , regex_number
+    , regex_boolean
     , regex_identifier
+    , regex_sidentifier
     , regex_space
     , regex_badinput ]

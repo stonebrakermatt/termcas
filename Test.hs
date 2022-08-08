@@ -28,6 +28,5 @@ import qualified ExpData.Expression.Utils as ExpExpressionUtils
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    print (IOLexer.lex "\\graph f(x) from x = 0 to x = 10")
-
-
+    print (IOLexer.lex "true == true and false == false")
+    print (IOParser.parse_expr (IOLexer.lex "true == true and false == false"))

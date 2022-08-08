@@ -147,8 +147,8 @@ parse_expr input = case parse_operand 0 input of
  - B -> -CCtail | CCtail
  - C -> DDtail -}
 parse_operand :: Int -> Parser Exp.Expression
-parse_operand prec input = if prec < 4
-    then if prec == 2
+parse_operand prec input = if prec < 6
+    then if prec == 4
         then
             next_token input `pbind` (\(t, input1) -> 
             case t of 
@@ -202,7 +202,8 @@ parse_term :: Parser Exp.Expression
 parse_term input =
     parse_id_or_call input `pfails` (\() ->
     parse_num input `pfails` (\() ->
-    parse_parens input))
+    parse_bool input `pfails` (\() ->
+    parse_parens input)))
 
 {- Helper functions for parse_id_or_call -}
 parse_id :: Parser Exp.Expression
@@ -230,13 +231,19 @@ parse_id_or_call input =
                 Left (Exp.FCall id args, input2)) `pfails` (\() -> Left (eid, input1))
             _ -> Right (UnexpectedInput (show eid)))
 
-{- Parses a number or parenthetical if
+{- Parses a number or boolean or parenthetical if
  - parse_id_or_call fails -}
 parse_num :: Parser Exp.Expression
 parse_num input =
     next_token input `pbind` (\(t, input1) ->
     case t of
         Token.NumLiteralToken num -> Left (Exp.Num num, input1)
+        _ -> Right (UnexpectedInput (show t)))
+parse_bool :: Parser Exp.Expression
+parse_bool input = next_token input `pbind` (\(t, input1) ->
+    case t of 
+        Token.BooleanToken "True" -> Left (Exp.Boolean True, input1)
+        Token.BooleanToken "False" -> Left (Exp.Boolean False, input1)
         _ -> Right (UnexpectedInput (show t)))
 parse_parens :: Parser Exp.Expression
 parse_parens input =

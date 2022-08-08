@@ -20,6 +20,7 @@ data Expression
     | FCall [Char] [Expression]
     | Id [Char]
     | Num [Char]
+    | Boolean Bool
     deriving (Read, Eq)
 
 
@@ -44,3 +45,4 @@ instance Show Expression where
     show (FCall f args) = f ++ "(" ++ (add_commas (get_arg_str args) []) ++ ")"
     show (Id i) = i
     show (Num n) = n
+    show (Boolean bool) = show bool

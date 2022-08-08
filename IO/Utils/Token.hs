@@ -13,12 +13,14 @@ module IO.Utils.Token where
 {- Token type for lexing user input -}
 data InputToken
     = CommandToken [Char]
-    | RelationToken [Char]
-    | AssignToken [Char]
-    | IdToken [Char]
+    | KeywordToken [Char]
     | OpToken [Char]
-    | NumLiteralToken [Char]
+    | AssignToken [Char]
     | DelimiterToken [Char]
+    | NumLiteralToken [Char]
+    | BooleanToken [Char]
+    | IdToken [Char]
+    | SetIdToken [Char]
     | SpaceToken [Char]
     | BadInputToken [Char]
     deriving (Read, Eq)
@@ -28,23 +30,27 @@ data InputToken
 {- Token constructors. See Lexer for its use -}
 token_constructors =
     [ CommandToken
-    , RelationToken
+    , KeywordToken
+    , OpToken
     , AssignToken
     , DelimiterToken
-    , OpToken
     , NumLiteralToken
+    , BooleanToken
     , IdToken
+    , SetIdToken
     , SpaceToken
     , BadInputToken ]
 
 {- Define how tokens are printed -}
 instance Show InputToken where
     show (CommandToken str) = "<com:\"" ++ str ++ "\">"
-    show (RelationToken str) = "<rel:\"" ++ str ++ "\">"
-    show (AssignToken str) = "<ass:\"" ++ str ++ "\">"
-    show (IdToken str) = "<id:\"" ++ str ++ "\">"
+    show (KeywordToken str) = "<key:\"" ++ str ++ "\">"
     show (OpToken str) = "<op:\"" ++ str ++ "\">"
-    show (NumLiteralToken str) = "<num:\"" ++ str ++ "\">"
+    show (AssignToken str) = "<ass:\"" ++ str ++ "\">"
     show (DelimiterToken str) = "<del:\"" ++ str ++ "\">"
+    show (NumLiteralToken str) = "<num:\"" ++ str ++ "\">"
+    show (BooleanToken str) = "<boo:\"" ++ str ++ "\">"
+    show (IdToken str) = "<id:\"" ++ str ++ "\">"
+    show (SetIdToken str) = "<sid:\"" ++ str ++ "\">"
     show (SpaceToken str) = "<sp:\"" ++ str ++ "\">"
     show (BadInputToken str) = "<err:\"" ++ str ++ "\">"
