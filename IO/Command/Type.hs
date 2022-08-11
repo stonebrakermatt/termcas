@@ -20,10 +20,10 @@ data Builtin
 
 {- Display builtin commands -}
 instance Show Builtin where
-    show About = "show about dialog"
-    show Bindings = "show current bindings"
-    show Exit = "exit TermCAS"
-    show (Help n) = "show help dialog page " ++ show n
+    show About = "COM: Show about dialog."
+    show Bindings = "COM: Show current bindings."
+    show Exit = "COM: Exit TermCAS."
+    show (Help n) = "COM: Show help dialog page " ++ show n ++ "."
 
 {- Type for general commands -}
 data Command

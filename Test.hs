@@ -22,10 +22,10 @@ import qualified IO.Parser as Parser
 import qualified ExpData.Expression.Type as Exp
 import qualified ExpData.Expression.Utils as Utils
 
-input = Lexer.lex "2 + 2 in R"
+input = Lexer.lex "R = {x in R : f(x,2) < 2}"
 
 {- Main function -}
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    print (Parser.parse_expr input)
+    print (Parser.parse_command input)

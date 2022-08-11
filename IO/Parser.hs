@@ -4,6 +4,7 @@
  -
  - File for parsing input -}
 module IO.Parser where
+import IO.Command.Type as Com
 import qualified ExpData.Expression.Type as Exp
 import qualified ExpData.Expression.Utils as ExpUtils
 import qualified IO.Utils.Lexer as Lexer
@@ -21,8 +22,10 @@ data ParseError
     | UnexpectedInput [Char]
     | IntervalFormatError
     | SetFormatError
-    | TooManyArguments -- for commands when implemented
+    | TooManyArguments
     | UnknownArgument [Char]
+    | UnknownCommand [Char]
+    | LValueError
     deriving (Read)
 
 {- Display parse errors nicely -}
@@ -35,6 +38,8 @@ instance Show ParseError where
     show SetFormatError = "Err: Set formatting."
     show TooManyArguments = "Err: Too many arguments."
     show (UnknownArgument str) = "Err: Unknown argument: " ++ str ++ "."
+    show (UnknownCommand str) = "Err: Unknown command: " ++ str ++ "."
+    show LValueError = "Err: Invalid lvalue."
 
 {- Parser type for simplpifying type signatures -}
 type ParseResult t = Either (t, [Token.InputToken]) ParseError
@@ -354,14 +359,21 @@ extract_pb input
             _ -> Right SetFormatError)
 
 {- Split at commas -}
-split_comma :: [Token.InputToken] -> [[Token.InputToken]]
+split_comma :: Parser [[Token.InputToken]]
 split_comma input = 
-    let split_comma' [] revlist [] = reverse revlist
-        split_comma' [] revlist revacc = reverse (reverse revacc : revlist)
-        split_comma' (t : tokens) revlist revacc  = case t of
-            Token.DelimiterToken "," -> split_comma' tokens (reverse revacc : revlist) []
-            _ -> split_comma' tokens revlist (t : revacc)
-    in split_comma' input [] []
+    let split_comma' depth [] revlist [] = Left (reverse revlist, [])
+        split_comma' depth [] revlist revacc = Left (reverse (reverse revacc : revlist), [])
+        split_comma' depth (t : tokens) revlist revacc  = case t of
+            Token.DelimiterToken "(" ->
+                split_comma' (depth + 1) tokens revlist (t : revacc)
+            Token.DelimiterToken ")" -> if depth == 0
+                then Right MismatchedBrackets
+                else split_comma' (depth - 1) tokens revlist (t : revacc)
+            Token.DelimiterToken "," -> if depth == 0
+                then split_comma' depth tokens (reverse revacc : revlist) []
+                else split_comma' depth tokens revlist (t : revacc)
+            _ -> split_comma' depth tokens revlist (t : revacc)
+    in split_comma' 0 input [] []
 
 {- Maps parse_expr over a list of lists of tokens -}
 map_parse_expr :: [[Token.InputToken]] -> ParseResult [Exp.Expression]
@@ -467,13 +479,15 @@ parse_sliteral input = next_token input `pbind` (\(t, input1) ->
                 Left (pb, condtokens) -> 
                     case extract_pb pb of
                         Left ((ptokens, base), []) -> 
-                            let eparse = map_parse_expr . split_comma
-                            in case (eparse ptokens, eparse condtokens) of 
-                                (Left (params, []), Left (conds, [])) -> case reindex params conds of
-                                    Left ((params', conds'), []) -> Left (Exp.Set (map show params') base conds', snd p)
-                                    Left _ -> Right SetFormatError
-                                    Right err -> Right err
-                                _ -> Right SetFormatError
+                            case (split_comma ptokens, split_comma condtokens) of
+                                (Left (plist, []), Left (clist, [])) -> case (map_parse_expr plist, map_parse_expr clist) of
+                                    (Left (params, []), Left (conds, [])) -> case reindex params conds of
+                                        Left ((params', conds'), []) -> Left (Exp.Set (map show params') base conds', snd p)
+                                        Left _ -> Right SetFormatError
+                                        Right err -> Right err
+                                    _ -> Right SetFormatError
+                                (Left _, Right err) -> Right err
+                                (Right err, _) -> Right err
                         Left _ -> Right SetFormatError
                         Right err -> Right err
                 Right err -> Right err
@@ -499,52 +513,54 @@ split_equals input =
             _ -> split_equals' tokens (t : revtokens)
     in split_equals' input []
 
-{- Helper function for parsing a command -}
-remove_while :: (a -> Bool) -> [a] -> [a]
-remove_while f [] = []
-remove_while f (l : lst) = if f l
-    then remove_while f lst
-    else l : lst
-remove_spaces :: [Char] -> [Char]
-remove_spaces input = 
-    let reversed = remove_while (\l -> (l == ' ') || (l == '\t')) (reverse input)
-    in remove_while (\l -> (l == ' ') || (l == '\t')) (reverse reversed)
-split_spaces :: [Char] -> [[Char]]
-split_spaces input = 
-    let split_spaces' [] [] terms = reverse terms
-        split_spaces' [] current terms = reverse (reverse current : terms)
-        split_spaces' (h : t) current terms = if (h == ' ') || (h == '\t')
-            then if null current
-                then split_spaces' t [] terms
-                else split_spaces' t [] (reverse current : terms)
-            else split_spaces' t (h : current) terms
-    in split_spaces' input [] []
 
-{- Parse a builtin command 
-parse_builtin :: [Char] -> Maybe D.Command
-parse_builtin input = 
-    let lst = (split_spaces . remove_spaces) input
-    in case lst of 
-        [] -> Nothing
-        cmd : [] -> if cmd == "\\about"
-            then Just (D.Builtin D.About)
-            else if cmd == "\\bindings"
-                then Just (D.Builtin D.Bindings)
-                else if cmd == "\\exit"
-                    then Just (D.Builtin D.Exit)
-                    else if cmd == "\\help"
-                        then Just (D.Builtin (D.Help 0))
-                        else Nothing
-        cmd : arg : [] -> if cmd == "\\help"
-            then if arg == "0"
-                then Just (D.Builtin (D.Help 0))
-                else if arg == "1"
-                    then Just (D.Builtin (D.Help 1))
-                    else if arg == "2"
-                        then Just (D.Builtin (D.Help 2))
-                        else Nothing
-            else Nothing
-        _ -> Nothing -}
+
+{- Parse a command -}
+parse_command :: Parser Com.Command
+parse_command input = next_token input `pbind` (\(t, input1) ->
+    case t of 
+        Token.CommandToken com -> case com of
+            "\\about" -> case input1 of 
+                [] -> Left (Com.Builtin Com.About, [])
+                (t : tokens) -> Right (UnexpectedInput (show t))
+            "\\bindings" -> case input1 of 
+                [] -> Left (Com.Builtin Com.Bindings, [])
+                (t : tokens) -> Right (UnexpectedInput (show t))
+            "\\exit" -> case input1 of 
+                [] -> Left (Com.Builtin Com.Exit, [])
+                (t : tokens) -> Right (UnexpectedInput (show t))
+            "\\help" -> case input1 of 
+                [] -> Left (Com.Builtin (Com.Help 0), [])
+                (t : tokens) -> if null tokens 
+                    then case t of 
+                        Token.NumLiteralToken "0" -> Left (Com.Builtin (Com.Help 0), [])
+                        Token.NumLiteralToken "1" -> Left (Com.Builtin (Com.Help 1), [])
+                        Token.NumLiteralToken "2" -> Left (Com.Builtin (Com.Help 2), [])
+                        Token.NumLiteralToken "3" -> Left (Com.Builtin (Com.Help 3), [])
+                        Token.NumLiteralToken "4" -> Left (Com.Builtin (Com.Help 4), [])
+                        _ -> Right (UnknownArgument (show t))
+                    else Right (TooManyArguments)
+            _ -> Right (UnknownCommand (show t))
+        Token.SetIdToken sid -> case parse_set [t] of
+            Left (lvalue, _) -> next_token input1 `pbind` (\(t', input2) ->
+                case t' of
+                    Token.AssignToken "=" -> case parse_set input2 of 
+                        Left (rvalue, []) -> Left (Com.AssignSet lvalue rvalue, [])
+                        Left _ -> Right LValueError
+                        Right err -> Right err
+                    _ -> Right LValueError)
+            Right err -> Right err
+        Token.IdToken id -> case parse_expr [t] of
+            Left (lvalue, _) -> next_token input1 `pbind` (\(t', input2) ->
+                case t' of
+                    Token.AssignToken "=" -> case parse_expr input2 of 
+                        Left (rvalue, []) -> Left (Com.AssignExp lvalue rvalue, [])
+                        Left _ -> Right LValueError
+                        Right err -> Right err
+                    _ -> Right LValueError)
+            Right err -> Right err)
+            
+        
 
 
 
