@@ -10,23 +10,22 @@ import System.Environment
 import System.IO
 
 {- IO imports -}
-import qualified IO.Utils.Regex.Type as IORegex
-import qualified IO.Utils.Regex.GrammarRegexes as IORegexGrammar
-import qualified IO.Utils.Regex.Keywords as IORegexKeyword
-import qualified IO.Utils.Capture as IOCapture
-import qualified IO.Utils.Lexer as IOLexer
-import qualified IO.Utils.Token as IOToken
-import qualified IO.Dialog as IODialog
-import qualified IO.Parser as IOParser
+import qualified IO.Command.Type as Com
+import qualified IO.Utils.Regex.Type as Regex
+import qualified IO.Utils.Regex.Grammar as Grammar
+import qualified IO.Utils.Regex.Keywords as Keyword
+import qualified IO.Utils.Lexer as Lexer
+import qualified IO.Utils.Token as Token
+import qualified IO.Parser as Parser
 
 {- ExpData imports -}
-import qualified ExpData.Expression.Type as ExpExpression
-import qualified ExpData.Expression.Operator as ExpExpressionOp
-import qualified ExpData.Expression.Utils as ExpExpressionUtils
+import qualified ExpData.Expression.Type as Exp
+import qualified ExpData.Expression.Utils as Utils
+
+input = Lexer.lex "2 + 2 in R"
 
 {- Main function -}
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    print (IOLexer.lex "true == true and false == false")
-    print (IOParser.parse_expr (IOLexer.lex "true == true and false == false"))
+    print (Parser.parse_expr input)

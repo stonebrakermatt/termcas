@@ -6,9 +6,10 @@
  - special string literals recognized
  - by this program -}
 module IO.Utils.Regex.Keywords
-    ( special_funcs
+    ( constants
     , discrete_ops
-    , constants ) where
+    , keywords
+    , special_funcs ) where
 
 
 
@@ -46,21 +47,27 @@ hyp_trig_funcs =
 
 
 
-{- All special function keywords -}
-special_funcs = ["exp", "log", "ln"]
-    ++ trig_funcs
-    ++ hyp_trig_funcs
-
-{- All binary operator keywords -}
-discrete_ops =
-    [ "mod"
-    , "choose"
-    , "permute" ]
-
-{- All keywords for special constants -}
+{- All special constants -}
 constants =
     [ "pi"
     , "tau"
     , "e"
     , "i"
     , "phi"]
+
+{- Some binary operators -}
+discrete_ops =
+    [ "mod"
+    , "choose"
+    , "permute" ]
+
+{- All keywords -}
+keywords = 
+    [ "in"
+    , "from"
+    , "to" ]
+
+{- All special function keywords -}
+special_funcs = ["abs", "exp", "log", "ln"]
+    ++ trig_funcs
+    ++ hyp_trig_funcs

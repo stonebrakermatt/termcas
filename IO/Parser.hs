@@ -5,7 +5,7 @@
  - File for parsing input -}
 module IO.Parser where
 import qualified ExpData.Expression.Type as Exp
-import qualified ExpData.Expression.Operator as Op
+import qualified ExpData.Expression.Utils as ExpUtils
 import qualified IO.Utils.Lexer as Lexer
 import qualified IO.Utils.Token as Token
 
@@ -18,9 +18,10 @@ data ParseError
     = FailedToBuildExpression
     | MismatchedBrackets
     | UnexpectedEndOfInput
-    | ExpectedExpression [Char]
     | UnexpectedInput [Char]
-    | TooManyArguments
+    | IntervalFormatError
+    | SetFormatError
+    | TooManyArguments -- for commands when implemented
     | UnknownArgument [Char]
     deriving (Read)
 
@@ -29,8 +30,9 @@ instance Show ParseError where
     show FailedToBuildExpression = "Err: Failed to build expression."
     show MismatchedBrackets = "Err: Mismatched brackets."
     show UnexpectedEndOfInput = "Err: Unexpected end of input."
-    show (ExpectedExpression str) = "Err: Expected expression, got " ++ str ++ "."
     show (UnexpectedInput str) = "Err: Unexpected input: " ++ str ++ "."
+    show IntervalFormatError = "Err: Interval formatting."
+    show SetFormatError = "Err: Set formatting."
     show TooManyArguments = "Err: Too many arguments."
     show (UnknownArgument str) = "Err: Unknown argument: " ++ str ++ "."
 
@@ -57,27 +59,25 @@ pfails ok _ = ok
  - much as possible. Still complicated, but it helps -}
 
 {- Gets the next token.
- - Plays nice with bind and fails -}
+ - Plays nice with pbind and pfails -}
 next_token :: Parser Token.InputToken
 next_token (t : input1) = Left (t, input1)
 next_token _ = Right UnexpectedEndOfInput
 
-{- Parses an operator with the appropriate precedence
- - Used in parse_atail through parse_dtail to maintain
- - the order of operaions -}
-parse_op_prec :: Int -> Parser Op.Op
+{- Parses an operator with the appropriate precedence.
+ - Used in parse_aoptail to maintain the order of operaions -}
+parse_op_prec :: Int -> Parser Exp.Op
 parse_op_prec n [] = Right UnexpectedEndOfInput
 parse_op_prec n (t : input) = case t of
     Token.OpToken o ->
-        if Op.operator_precedence (Op.get_op o) == n
-        then Left (Op.get_op o, input)
+        if Exp.operator_precedence (Exp.get_op o) == n
+        then Left (Exp.get_op o, input)
         else Right (UnexpectedInput (show t))
     _ -> Right (UnexpectedInput (show t))
 
-{- Helper function for parse_a through parse_d. Takes
- - the results of parse_atail through parse_dtail and
- - builds out the expression tree -}
-build_tail :: ([Exp.Expression], [Op.Op]) -> Either Exp.Expression ParseError
+{- Helper function for parse_op. Takes the results of 
+ - parse_optail and builds out the expression tree -}
+build_tail :: ([Exp.Expression], [Exp.Op]) -> Either Exp.Expression ParseError
 build_tail ([], _) = Right FailedToBuildExpression
 build_tail ([e], _) = Left e
 build_tail (_, []) = Right FailedToBuildExpression
@@ -130,22 +130,21 @@ separate_args input =
 
 
 
-{- The main parser functionality starts below -}
+{- The main parser functionality for expressions starts below -}
 
 {- Rule: Expr -> AAtail -}
 parse_expr :: Parser Exp.Expression
 parse_expr input = case parse_operand 0 input of
-    Left (expr, []) -> Left (expr, [])
-    Left (expr, t : tokens) -> case t of
-        Token.OpToken o -> Right (ExpectedExpression (show t))
-        _ -> Right (UnexpectedInput (show t))
+    Left (expr, tokens) -> Left (expr, tokens)
     Right err -> Right err
 
 {- Rules:
- - Expr -> AAtail
+ - Expr -> not AAtail | AAtail
  - A -> BBtail
  - B -> -CCtail | CCtail
- - C -> DDtail -}
+ - C -> DDtail 
+ - D -> EEtail 
+ - E -> FFtail -}
 parse_operand :: Int -> Parser Exp.Expression
 parse_operand prec input = if prec < 6
     then if prec == 4
@@ -160,19 +159,37 @@ parse_operand prec input = if prec < 6
                     parse_operand (prec + 1) input `pbind` (\(e, input2) ->
                     parse_optail (prec + 1) e input2 `pbind` (\(pairs, input3) ->
                     build_tail pairs `pbind` (\exp -> Left (exp,  input3)))))
-        else 
-            parse_operand (prec + 1) input `pbind` (\(e, input1) ->
-            parse_optail (prec + 1) e input1 `pbind` (\(pairs, input2) ->
-            build_tail pairs `pbind` (\exp -> Left (exp, input2))))
+        else if prec == 1
+            then 
+                next_token input `pbind` (\(t, input1) ->
+                    case t of
+                        Token.OpToken "not" ->
+                            parse_operand (prec + 1) input1 `pbind` (\(e, input2) ->
+                            parse_optail (prec + 1) (Exp.Not e) input2 `pbind` (\(pairs, input3) ->
+                            build_tail pairs `pbind` (\exp -> Left (exp,  input3))))
+                        _ -> 
+                            parse_operand (prec + 1) input `pbind` (\(e, input2) ->
+                            parse_optail (prec + 1) e input2 `pbind` (\(pairs, input3) ->
+                            build_tail pairs `pbind` (\exp -> Left (exp, input3)))))
+            else 
+                parse_operand (prec + 1) input `pbind` (\(e, input1) ->
+                parse_optail (prec + 1) e input1 `pbind` (\(pairs, input2) ->
+                build_tail pairs `pbind` (\exp -> Left (exp, input2))))
     else
-        parse_d input
+        parse_f input
 
 {- Rules:
  - Atail -> XAAtail | Empty
  - Btail -> YBBtail | Empty
  - Ctail -> ZCCtail | Empty
- - Dtail -> \^DDtail | Empty -}
-parse_optail :: Int -> Exp.Expression -> Parser ([Exp.Expression], [Op.Op])
+ - Dtail -> \+DDtail | \-DDtail | Empty 
+ - Etail -> \*EEtail | \/EEtail | Empty
+ - Ftail -> \^FFtail | Empty 
+ -
+ - X -> and | or | xor 
+ - Y -> == | != | > | >= | < | <= 
+ - Z -> mod | choose | permute -}
+parse_optail :: Int -> Exp.Expression -> Parser ([Exp.Expression], [Exp.Op])
 parse_optail prec exp input =
     let parse_optail' [] (exps, ops) = Left ((reverse exps, reverse ops), [])
         parse_optail' input (exps, ops) =
@@ -182,7 +199,15 @@ parse_optail prec exp input =
             Left ((reverse exps, reverse ops), input))
     in parse_optail' input ([exp], [])
 
+{- Rule: G -> IdOrCall | Num | Bool | Parens -}
+parse_term :: Parser Exp.Expression
+parse_term input =
+    parse_id_or_call input `pfails` (\() ->
+    parse_num input `pfails` (\() ->
+    parse_bool input `pfails` (\() ->
+    parse_parens input)))
 
+{- Rule: F -> G!* -}
 parse_factorial :: Exp.Expression -> Parser Exp.Expression
 parse_factorial exp input = 
     if input == []
@@ -192,18 +217,13 @@ parse_factorial exp input =
                 Token.OpToken "!" -> parse_factorial (Exp.Factorial exp) input1
                 _ -> Left (exp, input)) 
 
-parse_d :: Parser Exp.Expression
-parse_d input = 
+{- Rule: F -> IdOrCall!* | Num!* | Bool!* | Parens!* -}
+parse_f :: Parser Exp.Expression
+parse_f input = 
     parse_term input `pbind` (\(exp, input1) ->
     parse_factorial exp input1)
 
-{- Rule: D -> IdOrCall | Num | Paren -}
-parse_term :: Parser Exp.Expression
-parse_term input =
-    parse_id_or_call input `pfails` (\() ->
-    parse_num input `pfails` (\() ->
-    parse_bool input `pfails` (\() ->
-    parse_parens input)))
+
 
 {- Helper functions for parse_id_or_call -}
 parse_id :: Parser Exp.Expression
@@ -254,6 +274,216 @@ parse_parens input =
             parse_expr parens `pbind` (\(exp, _) ->
             Left (Exp.Parenthetical exp, input2)))
         _ -> Right (UnexpectedInput (show t)))
+
+
+
+{- Functionality for parsing sets starts below -}
+
+{- Helper function to build a set -}
+build_stail :: ([Exp.Set], [Exp.Op]) -> Either Exp.Set ParseError
+build_stail ([], _) = Right FailedToBuildExpression
+build_stail ([s], _) = Left s
+build_stail (_, []) = Right FailedToBuildExpression
+build_stail (s1 : s2 : sets, o : ops) =
+    case o of 
+        Exp.Times -> build_stail (Exp.STimes s1 s2 : sets, ops)
+        _ -> Right (UnexpectedInput (show o)) 
+
+{- Helper functions to parse intervals -}
+extract_interval :: Parser ([Token.InputToken], Bool) 
+extract_interval input = 
+    let extract_interval' [] revtokens = Right UnexpectedEndOfInput
+        extract_interval' (t : tokens) revtokens = case t of 
+            Token.DelimiterToken ")" -> Left ((reverse revtokens, False), tokens)
+            Token.DelimiterToken "]" -> Left ((reverse revtokens, True), tokens)
+            _ -> extract_interval' tokens (t : revtokens)
+    in extract_interval' input []
+split_interval :: Parser [Token.InputToken]
+split_interval input = 
+    let split_interval' [] revtokens = Right IntervalFormatError
+        split_interval' (t : tokens) revtokens = case t of
+            Token.DelimiterToken "," -> Left (reverse revtokens, tokens)
+            _ -> split_interval' tokens (t : revtokens)
+    in split_interval' input []
+
+{- Helper functions for parsing set comprehensions -}
+
+{- Extract set comprehension and split at the colon -}
+extract_set :: Parser [Token.InputToken]
+extract_set input =
+    let extract_set' depth [] revtokens = Right MismatchedBrackets
+        extract_set' depth (t : tokens) revtokens = case t of
+            Token.DelimiterToken "{" ->
+                extract_set' (depth + 1) tokens (t : revtokens)
+            Token.DelimiterToken "}" ->
+                if depth == 1
+                then Left (reverse revtokens, tokens)
+                else extract_set' (depth - 1) tokens (t : revtokens)
+            _ -> extract_set' depth tokens (t : revtokens)
+    in extract_set' 1 input []
+split_set :: Parser [Token.InputToken]
+split_set input =
+    let split_set' [] revtokens = Right SetFormatError
+        split_set' (t : tokens) revtokens = case t of 
+            Token.DelimiterToken ":" -> Left (reverse revtokens, tokens)
+            _ -> split_set' tokens (t : revtokens)
+    in split_set' input []
+
+{- Extract set params and base set -}
+extract_pb :: Parser ([Token.InputToken], Exp.Set)
+extract_pb [] = Right SetFormatError
+extract_pb input
+    | length input == 1 = Left ((input, Exp.SetId "R"), [])
+    | otherwise = next_token input `pbind` (\(t, input1) ->
+        case t of
+            Token.DelimiterToken "(" -> 
+                case extract_parenthetical input1 of 
+                    Left (parens, input2) -> 
+                        next_token input2 `pbind` (\(t, input3) -> case t of 
+                            Token.KeywordToken "in" -> case parse_set input3 of
+                                Left (base, input4) -> Left ((parens, base), input4)
+                                Right err -> Right err
+                            _ -> Right (UnexpectedInput (show t)))
+                    Right err -> Right err
+            Token.IdToken id -> next_token input1 `pbind` (\(t', input2) ->
+                case t' of
+                    Token.KeywordToken "in" -> case parse_set input2 of 
+                        Left (base, input3) -> Left (([Token.IdToken id], base), input3)
+                        Right err -> Right err
+                    _ -> Right (UnexpectedInput (show t)))
+            _ -> Right SetFormatError)
+
+{- Split at commas -}
+split_comma :: [Token.InputToken] -> [[Token.InputToken]]
+split_comma input = 
+    let split_comma' [] revlist [] = reverse revlist
+        split_comma' [] revlist revacc = reverse (reverse revacc : revlist)
+        split_comma' (t : tokens) revlist revacc  = case t of
+            Token.DelimiterToken "," -> split_comma' tokens (reverse revacc : revlist) []
+            _ -> split_comma' tokens revlist (t : revacc)
+    in split_comma' input [] []
+
+{- Maps parse_expr over a list of lists of tokens -}
+map_parse_expr :: [[Token.InputToken]] -> ParseResult [Exp.Expression]
+map_parse_expr input = 
+    let map_parse_expr' [] revexps = Left (reverse revexps, [])
+        map_parse_expr' (t : tlist) revexps = case parse_expr t of
+            Left (exp, []) -> map_parse_expr' tlist (exp : revexps)
+            Left _ -> Right SetFormatError
+            Right err -> Right err
+    in map_parse_expr' input []
+
+map_substitute :: [Char] -> Exp.Expression -> [Exp.Expression] -> [Exp.Expression]
+map_substitute x e exprs = map (\e' -> ExpUtils.substitute x e e') exprs
+
+reindex :: [Exp.Expression] -> [Exp.Expression] -> ParseResult ([Exp.Expression], [Exp.Expression])
+reindex params conds =
+    let reindex' n [] revparams conds = Left ((reverse revparams, conds), [])
+        reindex' n (p : params) revparams conds = case p of 
+            Exp.Id id -> reindex' (n + 1) params ((Exp.Id ("_x" ++ show n)) : revparams) (map_substitute id (Exp.Id ("_x" ++ show n)) conds)
+            _ -> Right SetFormatError
+    in reindex' 0 params [] conds
+         
+
+
+
+{- Main set parsing functionality starts below -}
+
+parse_set :: Parser Exp.Set
+parse_set input = parse_sf input
+
+parse_sterm :: Parser Exp.Set
+parse_sterm input = parse_sliteral input `pfails` (\() ->
+    parse_interval input `pfails` (\() ->
+    parse_sid input))
+
+parse_sf :: Parser Exp.Set
+parse_sf input = parse_sterm input `pbind` (\(sterm, input1) ->
+    case input1 of
+        [] -> Left (sterm, [])
+        (t : input2) -> case t of 
+            Token.OpToken "*" -> parse_sftail sterm input1 `pbind` (\(pairs, input2) ->
+                build_stail pairs `pbind` (\set -> Left (set, input2)))
+            _ -> Right (UnexpectedInput (show t)))
+
+parse_sftail :: Exp.Set -> Parser ([Exp.Set], [Exp.Op])
+parse_sftail set input = 
+    let parse_sftail' [] (sets, ops) = Left ((reverse sets, reverse ops), [])
+        parse_sftail' input (sets, ops) =
+            parse_op_prec 5 input `pbind` (\(o, input1) ->
+            parse_sf input1 `pbind` (\(s, input2) ->
+            parse_sftail' input2 (s : sets, o : ops))) `pfails` (\() ->
+            Left ((reverse sets, reverse ops), input))
+    in parse_sftail' input ([set], [])
+
+{- Parses a set id -}
+parse_sid :: Parser Exp.Set
+parse_sid input = 
+    next_token input `pbind` (\(t, input1) ->
+        case t of 
+            Token.SetIdToken sid -> Left (Exp.SetId sid, input1)
+            _ -> Right (UnexpectedInput (show t)))
+
+{- Parses a real interval -}
+parse_interval :: Parser Exp.Set
+parse_interval input = next_token input `pbind` (\(t, input1) ->
+    case t of
+        Token.DelimiterToken "[" -> case extract_interval input1 of
+            Left p -> let (interval, endClosed) = (fst (fst p), snd (fst p))
+                in case split_interval interval of
+                    Left (begin, end) -> case (parse_expr begin, parse_expr end) of
+                        (Left (e1, _), Left (e2, _)) -> if endClosed
+                            then Left (Exp.Set ["_x0"] (Exp.SetId "R") 
+                                [ Exp.Binary Exp.GE (Exp.Id "_x0") e1
+                                , Exp.Binary Exp.LE (Exp.Id "_x0") e2 ], snd p)
+                            else Left (Exp.Set ["_x0"] (Exp.SetId "R") 
+                                [ Exp.Binary Exp.GE (Exp.Id "_x0") e1
+                                , Exp.Binary Exp.L (Exp.Id "_x0") e2 ], snd p) 
+                        _ -> Right IntervalFormatError
+                    Right err -> Right err
+            Right err -> Right err
+        Token.DelimiterToken "(" -> case extract_interval input1 of
+            Left p -> let (interval, endClosed) = (fst (fst p), snd (fst p))
+                in case split_interval interval of
+                    Left (begin, end) -> case (parse_expr begin, parse_expr end) of
+                        (Left (e1, _), Left (e2, _)) -> if endClosed
+                            then Left (Exp.Set ["_x0"] (Exp.SetId "R") 
+                                [ Exp.Binary Exp.G (Exp.Id "_x0") e1
+                                , Exp.Binary Exp.LE (Exp.Id "_x0") e2 ], snd p)
+                            else Left (Exp.Set ["_x0"] (Exp.SetId "R") 
+                                [ Exp.Binary Exp.G (Exp.Id "_x0") e1
+                                , Exp.Binary Exp.L (Exp.Id "_x0") e2 ], snd p) 
+                        _ -> Right IntervalFormatError
+                    Right err -> Right err
+            Right err -> Right err
+        _ -> Right (UnexpectedInput (show t)))
+
+{- Parses a set comprehension -}
+parse_sliteral :: Parser Exp.Set
+parse_sliteral input = next_token input `pbind` (\(t, input1) ->
+    case t of
+        Token.DelimiterToken "{" -> case extract_set input1 of 
+            Left p -> case split_set (fst p) of
+                Left (pb, condtokens) -> 
+                    case extract_pb pb of
+                        Left ((ptokens, base), []) -> 
+                            let eparse = map_parse_expr . split_comma
+                            in case (eparse ptokens, eparse condtokens) of 
+                                (Left (params, []), Left (conds, [])) -> case reindex params conds of
+                                    Left ((params', conds'), []) -> Left (Exp.Set (map show params') base conds', snd p)
+                                    Left _ -> Right SetFormatError
+                                    Right err -> Right err
+                                _ -> Right SetFormatError
+                        Left _ -> Right SetFormatError
+                        Right err -> Right err
+                Right err -> Right err
+            Right err -> Right err
+        _ -> Right SetFormatError)
+
+
+
+-- parse_sb :: Parser Exp.Set
+-- parse_sb input = 
 
 
 

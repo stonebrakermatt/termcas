@@ -68,6 +68,7 @@ show_regex_list const_list first_iter invert = if first_iter
         else escape_literals [head const_list] ++ show_regex_list (tail const_list) False invert
 
 {- This function pretty prints disjunctions -}
+show_or :: Regex -> Bool -> [Char]
 show_or (RegexOr []) first_iter = 
     if first_iter
         then "()"
