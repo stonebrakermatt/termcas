@@ -385,9 +385,11 @@ map_parse_expr input =
             Right err -> Right err
     in map_parse_expr' input []
 
+{- Substitutes the given params -}
 map_substitute :: [Char] -> Exp.Expression -> [Exp.Expression] -> [Exp.Expression]
 map_substitute x e exprs = map (\e' -> ExpUtils.substitute x e e') exprs
 
+{- Reindexes the set -}
 reindex :: [Exp.Expression] -> [Exp.Expression] -> ParseResult ([Exp.Expression], [Exp.Expression])
 reindex params conds =
     let reindex' n [] revparams conds = Left ((reverse revparams, conds), [])
@@ -398,17 +400,19 @@ reindex params conds =
          
 
 
-
 {- Main set parsing functionality starts below -}
 
+{- Parses a set -}
 parse_set :: Parser Exp.Set
 parse_set input = parse_sf input
 
+{- Parses a single term of a set literal -}
 parse_sterm :: Parser Exp.Set
 parse_sterm input = parse_sliteral input `pfails` (\() ->
     parse_interval input `pfails` (\() ->
     parse_sid input))
 
+{- Build out a factor tree -}
 parse_sf :: Parser Exp.Set
 parse_sf input = parse_sterm input `pbind` (\(sterm, input1) ->
     case input1 of
@@ -417,7 +421,6 @@ parse_sf input = parse_sterm input `pbind` (\(sterm, input1) ->
             Token.OpToken "*" -> parse_sftail sterm input1 `pbind` (\(pairs, input2) ->
                 build_stail pairs `pbind` (\set -> Left (set, input2)))
             _ -> Right (UnexpectedInput (show t)))
-
 parse_sftail :: Exp.Set -> Parser ([Exp.Set], [Exp.Op])
 parse_sftail set input = 
     let parse_sftail' [] (sets, ops) = Left ((reverse sets, reverse ops), [])
@@ -493,11 +496,6 @@ parse_sliteral input = next_token input `pbind` (\(t, input1) ->
                 Right err -> Right err
             Right err -> Right err
         _ -> Right SetFormatError)
-
-
-
--- parse_sb :: Parser Exp.Set
--- parse_sb input = 
 
 
 
