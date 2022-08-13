@@ -4,6 +4,7 @@
  -
  - Main file -}
 module Main where
+import System.Environment
 import System.IO
 
 {- IO imports -}
@@ -21,10 +22,11 @@ import qualified ExpData.Expression.Type as Exp
 
 
 
-
 {- Calls the main loop with a turn number of zero
  - and empty context -}
 main = do
+    args <- getArgs
+    sequence_ (map putStrLn args)
     sequence_ welcome_dialog
     repl 0 Con.empty_context
 
@@ -47,16 +49,11 @@ prompt_spaces n = if n > 9999999
 repl :: Int -> Con.Context -> IO ()
 repl n context = do
     putStrLn $ ""
-    putStr $ show n ++ prompt_spaces n ++ "=> "
+    putStr $ "=> "
     hFlush stdout
     str <- getLine
     case Parser.parse str of 
-        Left cmd -> case cmd of
-            Com.Builtin b -> if b == Com.Exit
-                then return ()
-                else do
-                    Handlers.handle_builtin b context
-                    repl n context
+        Left cmd -> case cmd of 
             Com.AssignExp e1 e2 -> case e1 of 
                 Exp.FCall f args -> case Handlers.handle_assign_function f args e2 context of 
                     Handlers.AssignSuccess (key, value) -> case value of 
@@ -80,9 +77,6 @@ repl n context = do
                     Handlers.AssignFailure err -> do
                         putStrLn $ "Error occurred while parsing input: " ++ show err
                         repl n context
-                _ -> do 
-                    putStrLn $ "Error occurred while parsing input: " ++ show Handlers.LValueError
-                    repl n context
             Com.AssignSet s1 s2 -> case s1 of
                 Exp.SetId sid -> case Handlers.handle_assign_set sid s2 context of
                     Handlers.AssignSuccess (key, value) -> case value of 
@@ -98,14 +92,11 @@ repl n context = do
                 _ -> do 
                     putStrLn $ "Error occurred while parsing input: " ++ show Handlers.LValueError
                     repl n context
-            Com.EvalExp exp -> do
-                print exp
-                print (ConUtils.satisfies_dependencies context (DepUtils.get_dependencies exp)) 
-                print (exp `ConUtils.apply` context)
+            Com.EvalExp e -> do 
+                print e
+                print ((e `ConUtils.apply` context) `ConUtils.apply` context)
                 repl n context
             Com.EvalSet set -> do
                 print set
                 repl n context
-        Right err -> do
-            putStrLn $ "Error occurred while parsing input: " ++ show err
-            repl n context
+        _ -> repl n context

@@ -57,3 +57,4 @@ apply expr context =
                 Just (Left (Exp.Id i, e)) -> apply' deps (ExpUtils.substitute i e expr) context
                 Just (Left (Exp.FCall f args, e)) -> apply' deps (ExpUtils.substitute_function f args e expr) context
         in apply' deps expr context
+    
