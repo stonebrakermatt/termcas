@@ -15,14 +15,17 @@ module ExpData.Dependency.Type where
 data DependencyType
     = V
     | F Int
+    | S
     deriving (Read, Eq)
-type ExpressionDependency = ([Char], DependencyType)
+type Dependency = ([Char], DependencyType)
 
 {- Implementing show and an ordering function -}
 instance Show DependencyType where
-    show V = "variable"
-    show (F 1) = "function of 1 argument"
-    show (F n) = "function of " ++ show n ++ " arguments"
+    show V = "Variable"
+    show (F 1) = "Function of 1 argument"
+    show (F n) = "Function of " ++ show n ++ " arguments"
+    show S = "Set"
 instance Ord DependencyType where
     V <= _ = True
     F n <= F m = n <= m
+    S >= _ = True
