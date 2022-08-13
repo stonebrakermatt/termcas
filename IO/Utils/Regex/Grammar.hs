@@ -70,6 +70,12 @@ regex_number = RE.RegexAnd
         , regex_number_fractional_part ]
     , RE.RegexMaybe regex_number_exponential_part ]
 
+{- Regular expression for matching positive integers only -}
+regex_number_integer :: RE.Regex
+regex_number_integer = RE.RegexAnd
+    [ regex_number_integer_part
+    , RE.RegexMaybe regex_number_exponential_part ]
+
 {- Regular expression for boolean values -}
 regex_boolean :: RE.Regex
 regex_boolean = RE.RegexOr

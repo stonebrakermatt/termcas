@@ -4,8 +4,9 @@
  -
  - Utilities for working with expressions -}
 module ExpData.Expression.Utils where
-import Data.List
 import qualified ExpData.Expression.Type as Exp
+import qualified IO.Utils.Regex.Grammar as Grammar
+import qualified IO.Utils.Lexer as Lexer
 
 
 
@@ -27,3 +28,10 @@ substitute_args [] [] expr = expr
 substitute_args (a1 : argvars) (a2 : arglist) expr = case a1 of
     Exp.Id x -> substitute_args argvars arglist (substitute x a2 expr)
     _ -> expr
+
+{- Test if an expression is an integer -}
+is_integer :: Exp.Expression -> Bool
+is_integer (Exp.Num n) = case n `Lexer.capture` Grammar.regex_number_integer of
+    Just _ -> True
+    _ -> False
+is_integer _ = False

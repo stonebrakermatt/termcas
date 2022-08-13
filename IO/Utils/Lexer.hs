@@ -3,7 +3,7 @@
  - (c) 2022 Matt Stonebraker
  - 
  - File for lexing user input -}
-module IO.Utils.Lexer (IO.Utils.Lexer.lex) where
+module IO.Utils.Lexer (capture, IO.Utils.Lexer.lex) where
 import qualified IO.Utils.Regex.Grammar as Grammar
 import qualified IO.Utils.Regex.Type as RE
 import qualified IO.Utils.Token as Token

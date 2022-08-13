@@ -417,10 +417,18 @@ parse_sf :: Parser Exp.Set
 parse_sf input = parse_sterm input `pbind` (\(sterm, input1) ->
     case input1 of
         [] -> Left (sterm, [])
-        (t : input2) -> case t of 
+        (t1 : input2) -> case t1 of 
             Token.OpToken "*" -> parse_sftail sterm input1 `pbind` (\(pairs, input2) ->
                 build_stail pairs `pbind` (\set -> Left (set, input2)))
-            _ -> Right (UnexpectedInput (show t)))
+            Token.OpToken "^" -> next_token input2 `pbind` (\(t2, input3) ->
+                case t2 of 
+                    Token.NumLiteralToken n -> if ExpUtils.is_integer (Exp.Num n)
+                        then let num = (read n :: Int) in 
+                            parse_sftail (Exp.SExp sterm num) input3 `pbind` (\(pairs, input4) ->
+                            build_stail pairs `pbind` (\set -> Left (set, input4)))
+                        else Right SetFormatError)
+            Token.AssignToken "=" -> Left (sterm, input1)
+            _ -> Right (UnexpectedInput (show t1)))
 parse_sftail :: Exp.Set -> Parser ([Exp.Set], [Exp.Op])
 parse_sftail set input = 
     let parse_sftail' [] (sets, ops) = Left ((reverse sets, reverse ops), [])
@@ -501,16 +509,28 @@ parse_sliteral input = next_token input `pbind` (\(t, input1) ->
 
 {- Functionality for parsing commands starts below -}
 
-{- Splits tokens at equals. Returns Nothing if there is no
- - assignment or an lvalue and rvalue for assignment -}
-split_equals :: [Token.InputToken] -> Maybe ([Token.InputToken], [Token.InputToken])
-split_equals input =
-    let split_equals' [] revtokens = Nothing
-        split_equals' (t : tokens) revtokens = case t of
-            Token.AssignToken "=" -> Just (reverse revtokens, tokens)
-            _ -> split_equals' tokens (t : revtokens)
-    in split_equals' input []
-
+{- Parses an rvalue expression -}
+parse_exp_rvalue :: Exp.Expression -> Parser Com.Command 
+parse_exp_rvalue exp input = if null input
+    then Left (Com.EvalExp exp, [])
+    else next_token input `pbind` (\(t, input1) -> case t of
+        Token.AssignToken "=" -> case parse_expr input1 of
+            Left (rvalue, []) -> Left (Com.AssignExp exp rvalue, [])
+            Left (rvalue, input2) -> Right (UnexpectedInput (show (head input2)))
+            Right err -> Right err
+        _ -> Right (UnexpectedInput (show t)))
+        
+{- Parses an rvalue set -}
+parse_set_rvalue :: Exp.Set -> Parser Com.Command 
+parse_set_rvalue set input = if null input
+    then Left (Com.EvalSet set, [])
+    else next_token input `pbind` (\(t, input1) -> case t of
+        Token.AssignToken "=" -> case parse_set input1 of
+            Left (rvalue, []) -> Left (Com.AssignSet set rvalue, [])
+            Left (rvalue, input2) -> Right (UnexpectedInput (show (head input2)))
+            Right err -> Right err
+        _ -> Right (UnexpectedInput (show t)))
+        
 
 
 {- Parse a command -}
@@ -539,39 +559,26 @@ parse_command input = next_token input `pbind` (\(t, input1) ->
                         _ -> Right (UnknownArgument (show t))
                     else Right (TooManyArguments)
             _ -> Right (UnknownCommand (show t))
-        Token.SetIdToken sid -> case parse_set [t] of
-            Left (lvalue, _) -> next_token input1 `pbind` (\(t', input2) ->
-                case t' of
-                    Token.AssignToken "=" -> case parse_set input2 of 
-                        Left (rvalue, []) -> Left (Com.AssignSet lvalue rvalue, [])
-                        Left _ -> Right LValueError
-                        Right err -> Right err
-                    _ -> Right LValueError)
+        Token.SetIdToken sid -> case parse_set input of 
+            Left (set, input2) -> parse_set_rvalue set input2
             Right err -> Right err
-        Token.IdToken id -> case parse_expr [t] of
-            Left (lvalue, _) -> next_token input1 `pbind` (\(t', input2) ->
-                case t' of
-                    Token.AssignToken "=" -> case parse_expr input2 of 
-                        Left (rvalue, []) -> Left (Com.AssignExp lvalue rvalue, [])
-                        Left _ -> Right LValueError
-                        Right err -> Right err
-                    _ -> Right LValueError)
-            Right err -> Right err)
-            
-        
+        Token.IdToken id -> case parse_expr input of
+            Left (exp, input2) -> parse_exp_rvalue exp input2
+            Right err -> Right err
+        _ -> case parse_expr input of 
+            Left (expr, []) -> Left (Com.EvalExp expr, [])
+            Left (expr, t : tokens) -> Right (UnexpectedInput (show t))
+            Right err -> case parse_set input of
+                Left (set, []) -> Left (Com.EvalSet set, [])
+                Left (set, t : tokens) -> Right (UnexpectedInput (show t))
+                Right err -> Right err)
 
 
 
-{- Parse user input into a command 
-parse :: [Char] -> Either D.Command ParseError
-parse input = case parse_builtin input of
-    Just cmd -> Left cmd
-    Nothing -> let lexed_input = L.lex input
-        in case split_equals lexed_input of
-            Nothing -> case parse_expr lexed_input of
-                Left (e, _) -> Left (D.Eval e)
-                Right e -> Right e
-            Just (l, r) -> case (parse_expr l, parse_expr r) of
-                (Left (lvalue, _), Left (rvalue, _)) -> Left (D.Assign lvalue rvalue)
-                (Right e, _) -> Right e
-                (_, Right e) -> Right e -}
+{- Parse user input into a command -}
+parse :: [Char] -> Either Com.Command ParseError
+parse input = let lexed_input = Lexer.lex input 
+    in case parse_command lexed_input of
+        Left (command, []) -> Left command
+        Left (command, t : tokens) -> Right (UnexpectedInput (show t))
+        Right err -> Right err
