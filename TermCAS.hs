@@ -101,6 +101,7 @@ repl n context = do
             Com.EvalExp exp -> do
                 print exp
                 print (ConUtils.satisfies_dependencies context (DepUtils.get_dependencies exp)) 
+                print (exp `ConUtils.apply` context)
                 repl n context
             Com.EvalSet set -> do
                 print set

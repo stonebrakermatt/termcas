@@ -69,7 +69,9 @@ handle_assign_variable i expr context = if i `elem` Keywords.constants
     then AssignFailure ReservedWordError
     else case ConUtils.create_context_key (Exp.Id i) of
         Nothing -> AssignFailure LValueError
-        Just context_key -> AssignSuccess (context_key, ConUtils.create_context_entry (Exp.Id i) expr)
+        Just context_key -> case ConUtils.satisfies_dependencies context (DepUtils.get_dependencies expr) of 
+            Nothing -> AssignSuccess (context_key, ConUtils.create_context_entry (Exp.Id i) expr)
+            Just _ -> AssignFailure MissingDependencyError
 handle_assign_function :: [Char] -> [Exp.Expression] -> Exp.Expression ->  Con.Context -> AssignResult
 handle_assign_function f args expr context = if f `elem` Keywords.special_funcs
     then AssignFailure ReservedWordError

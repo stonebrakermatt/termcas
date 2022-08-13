@@ -27,10 +27,19 @@ import qualified ExpData.Dependency.Utils as DepUtils
 import qualified ExpData.Context.Type as Con
 import qualified ExpData.Context.Utils as ConUtils
 
-input = "x = 2 + f(c)/4"
-
+input1 = "x = 2 + f(c,y)/4"
+input2 = "(((a)))"
 {- Main function -}
 main = do
     args <- getArgs
     sequence_ (map putStrLn args)
-    print (Handlers.reindex [Exp.Id "x"] (Exp.Binary Exp.Plus (Exp.Id "x") (Exp.Num "2")))
+    case Parser.parse input1 of
+        Left (Com.AssignExp e1 e2) -> 
+            let a = ExpUtils.substitute_function "f" [Exp.Id "z1", Exp.Id "z2"] (Exp.Binary Exp.Plus (Exp.Id "z1") (Exp.Id "z2")) e2
+            in do
+                print a 
+                print $ ExpUtils.remove_parens a
+    case Parser.parse input2 of
+        Left (Com.EvalExp e) -> 
+            let a = ExpUtils.remove_parens e
+            in print a

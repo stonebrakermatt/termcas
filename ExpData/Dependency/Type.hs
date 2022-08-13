@@ -21,10 +21,10 @@ type Dependency = ([Char], DependencyType)
 
 {- Implementing show and an ordering function -}
 instance Show DependencyType where
-    show V = "Variable"
-    show (F 1) = "Function of 1 argument"
-    show (F n) = "Function of " ++ show n ++ " arguments"
-    show S = "Set"
+    show V = "variable"
+    show (F 1) = "function of 1 argument"
+    show (F n) = "function of " ++ show n ++ " arguments"
+    show S = "set"
 instance Ord DependencyType where
     V <= _ = True
     F n <= F m = n <= m
