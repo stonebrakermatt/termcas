@@ -15,7 +15,6 @@ import qualified IO.Parser as Parser
 {- ExpData imports -}
 import qualified ExpData.Context.Type as Con
 import qualified ExpData.Context.Utils as ConUtils
-import qualified ExpData.Dependency.Utils as DepUtils
 import qualified ExpData.Expression.Type as Exp
 
 
@@ -49,7 +48,7 @@ prompt_spaces n = if n > 9999999
 repl :: Int -> Con.Context -> IO ()
 repl n context = do
     putStrLn $ ""
-    putStr $ "=> "
+    putStr $ show n ++ prompt_spaces n ++ "=> "
     hFlush stdout
     str <- getLine
     case Parser.parse str of 
@@ -61,10 +60,10 @@ repl n context = do
                             putStrLn $ "      Out: Successfully assigned " ++ show k ++ " to " ++ show v ++ "."
                             repl (n + 1) (context `ConUtils.context_insert` (key, value))
                         _ -> do
-                            putStrLn $ "Error occurred while parsing input."
+                            putStrLn $ "      Err: Error occurred while parsing input."
                             repl n context
                     Handlers.AssignFailure err -> do
-                        putStrLn $ "Error occurred while parsing input: " ++ show err
+                        putStrLn $ "      Err: Error occurred while parsing input: " ++ show err
                         repl n context
                 Exp.Id i -> case Handlers.handle_assign_variable i e2 context of 
                     Handlers.AssignSuccess (key, value) -> case value of 
@@ -72,10 +71,10 @@ repl n context = do
                             putStrLn $ "      Out: Successfully assigned " ++ show k ++ " to " ++ show v ++ "."
                             repl (n + 1) (context `ConUtils.context_insert` (key, value))
                         _ -> do
-                            putStrLn $ "Error occurred while parsing input."
+                            putStrLn $ "      Err: Error occurred while parsing input."
                             repl n context
                     Handlers.AssignFailure err -> do
-                        putStrLn $ "Error occurred while parsing input: " ++ show err
+                        putStrLn $ "      Err: Error occurred while parsing input: " ++ show err
                         repl n context
             Com.AssignSet s1 s2 -> case s1 of
                 Exp.SetId sid -> case Handlers.handle_assign_set sid s2 context of
@@ -84,19 +83,28 @@ repl n context = do
                             putStrLn $ "      Out: Successfully assigned " ++ show k ++ " to " ++ show v ++ "."
                             repl (n + 1) (context `ConUtils.context_insert` (key, value))
                         _ -> do
-                            putStrLn $ "Error occurred while parsing input."
+                            putStrLn $ "      Err: Error occurred while parsing input."
                             repl n context
                     Handlers.AssignFailure err -> do
-                        putStrLn $ "Error occurred while parsing input: " ++ show err
+                        putStrLn $ "      Err: Error occurred while parsing input: " ++ show err
                         repl n context
                 _ -> do 
-                    putStrLn $ "Error occurred while parsing input: " ++ show Handlers.LValueError
+                    putStrLn $ "      Err: Error occurred while parsing input: " ++ show Handlers.LValueError
+                    repl n context
+            Com.Builtin b -> if b == Com.Exit
+                then return ()
+                else do
+                    Handlers.handle_builtin b context
                     repl n context
             Com.EvalExp e -> do 
-                print e
-                print ((e `ConUtils.apply` context) `ConUtils.apply` context)
+                putStrLn $ "      Out: " ++ show (ConUtils.get_dependencies e)
+                putStrLn $ "      Out: " ++ show (ConUtils.get_dep_tree e context)
+                putStrLn $ "      Out: " ++ show (ConUtils.tree_contains (ConUtils.get_dep_tree e context) ("a", Con.V))
+                putStrLn $ "      Out: " ++ show ((e `ConUtils.apply` context) `ConUtils.apply` context)
                 repl n context
             Com.EvalSet set -> do
-                print set
+                putStrLn $ "      Out: " ++ show set
                 repl n context
-        _ -> repl n context
+        Right err -> do
+            putStrLn $ "      Err: Error occurred while parsing input: " ++ show err
+            repl n context

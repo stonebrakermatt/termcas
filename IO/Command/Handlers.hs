@@ -13,8 +13,6 @@ import IO.Utils.Regex.Keywords as Keywords
 {- ExpData imports -}
 import ExpData.Context.Type as Con
 import ExpData.Context.Utils as ConUtils
-import ExpData.Dependency.Type as Dep
-import ExpData.Dependency.Utils as DepUtils
 import ExpData.Expression.Type as Exp
 import ExpData.Expression.Utils as ExpUtils
 
@@ -32,7 +30,7 @@ data AssignError
     | DuplicateArgumentError
     deriving (Read)
 data AssignResult
-    = AssignSuccess (Dep.Dependency, Con.ContextEntry)
+    = AssignSuccess (Con.Dependency, Con.ContextEntry)
     | AssignFailure AssignError
     deriving (Show, Read)
 
@@ -69,9 +67,11 @@ handle_assign_variable i expr context = if i `elem` Keywords.constants
     then AssignFailure ReservedWordError
     else case ConUtils.create_context_key (Exp.Id i) of
         Nothing -> AssignFailure LValueError
-        Just context_key -> case ConUtils.satisfies_dependencies context (DepUtils.get_dependencies expr) of 
-            Nothing -> AssignSuccess (context_key, ConUtils.create_context_entry (Exp.Id i) expr)
-            Just _ -> AssignFailure MissingDependencyError
+        Just context_key -> if ConUtils.tree_contains (ConUtils.get_dep_tree expr context) (i, Con.V)
+            then
+                AssignFailure CircularDependencyError
+            else
+                AssignSuccess (context_key, ConUtils.create_context_entry (Exp.Id i) expr)
 handle_assign_function :: [Char] -> [Exp.Expression] -> Exp.Expression ->  Con.Context -> AssignResult
 handle_assign_function f args expr context = if f `elem` Keywords.special_funcs
     then AssignFailure ReservedWordError
@@ -80,7 +80,11 @@ handle_assign_function f args expr context = if f `elem` Keywords.special_funcs
         else case reindex args expr of
             Just (new_args, new_expr) -> case ConUtils.create_context_key (Exp.FCall f new_args) of
                 Nothing -> AssignFailure LValueError
-                Just context_key -> AssignSuccess (context_key, ConUtils.create_context_entry (Exp.FCall f new_args) new_expr)
+                Just context_key -> if ConUtils.tree_contains (ConUtils.get_dep_tree new_expr context) (f, Con.F (length new_args))
+                    then 
+                        AssignFailure CircularDependencyError
+                    else 
+                        AssignSuccess (context_key, ConUtils.create_context_entry (Exp.FCall f new_args) new_expr)
             Nothing -> AssignFailure ReindexError
 handle_assign_set :: [Char] -> Exp.Set -> Con.Context -> AssignResult
 handle_assign_set s set context = case ConUtils.create_context_key_set (Exp.SetId s) of
