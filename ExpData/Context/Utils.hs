@@ -47,8 +47,14 @@ apply expr context =
                 Just (Left (Exp.FCall f args, e)) -> apply' deps (ExpUtils.substitute_function f args e expr) context
         in apply' deps expr context
 
+apply_all :: Exp.Expression -> Int -> Con.Context -> Exp.Expression
+apply_all expr 0 context = expr
+apply_all expr n context = apply_all (apply expr context) (n - 1) context
+
 {- Function to get the dependencies of an expression -}
 get_dependencies :: Exp.Expression -> [Con.Dependency]
+get_dependencies (Exp.Factorial e) = get_dependencies e
+get_dependencies (Exp.Not e) = get_dependencies e
 get_dependencies (Exp.Negate e) = get_dependencies e
 get_dependencies (Exp.Binary o e1 e2) = get_dependencies e1 `List.union` get_dependencies e2
 get_dependencies (Exp.Parenthetical e) = get_dependencies e
@@ -58,6 +64,7 @@ get_dependencies (Exp.Id x) = if head x == '_'
     then []
     else [(x, Con.V)]
 get_dependencies (Exp.Num n) = []
+get_dependencies (Exp.Boolean b) = []
 
 {- Builds a dependency tree  -}
 dep_to_tree :: Con.Dependency -> Con.Context -> [Con.Dependency] -> Con.DependencyTree
@@ -72,6 +79,11 @@ get_dep_tree :: Exp.Expression -> Con.Context -> Con.DependencyTree
 get_dep_tree expr context = case get_dependencies expr of
     [] -> Con.Empty
     (d : deps) -> Con.Branch ("_expr", Con.V) (List.map (\x -> dep_to_tree x context []) (d : deps))
+
+depth :: Con.DependencyTree -> Int
+depth (Con.Empty) = 0
+depth (Con.Leaf l) = 1
+depth (Con.Branch b deps) = 1 + List.foldr max 0 (List.map (\x -> depth x) deps)
 
 {- Checks if a dependency tree contains a given dependency -}
 tree_contains :: Con.DependencyTree -> Con.Dependency -> Bool

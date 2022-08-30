@@ -16,6 +16,7 @@ import qualified IO.Parser as Parser
 import qualified ExpData.Context.Type as Con
 import qualified ExpData.Context.Utils as ConUtils
 import qualified ExpData.Expression.Type as Exp
+import qualified ExpData.Expression.Utils as ExpUtils
 
 
 
@@ -97,10 +98,10 @@ repl n context = do
                     Handlers.handle_builtin b context
                     repl n context
             Com.EvalExp e -> do 
-                putStrLn $ "      Out: " ++ show (ConUtils.get_dependencies e)
-                putStrLn $ "      Out: " ++ show (ConUtils.get_dep_tree e context)
-                putStrLn $ "      Out: " ++ show (ConUtils.tree_contains (ConUtils.get_dep_tree e context) ("a", Con.V))
-                putStrLn $ "      Out: " ++ show ((e `ConUtils.apply` context) `ConUtils.apply` context)
+                let depth = ConUtils.depth (ConUtils.get_dep_tree e context)
+                let new_expr = ConUtils.apply_all e depth context
+                putStrLn $ "      Out: " ++ show new_expr
+                putStrLn $ "      Out: " ++ show (ExpUtils.remove_all_parens new_expr)
                 repl n context
             Com.EvalSet set -> do
                 putStrLn $ "      Out: " ++ show set

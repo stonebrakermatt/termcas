@@ -22,14 +22,17 @@ is_integer _ = False
 {- Utilities for substituting expressions for a variables -}
 substitute :: [Char] -> Exp.Expression -> Exp.Expression -> Exp.Expression
 substitute x e expr = case expr of
-    Exp.Negate e1 -> Exp.Negate (Exp.Parenthetical (substitute x e e1))
-    Exp.Binary o e1 e2 -> Exp.Parenthetical (Exp.Binary o (substitute x e e1) (substitute x e e2))
+    Exp.Factorial e1 -> Exp.Factorial (substitute x e e1)
+    Exp.Not e1 -> Exp.Not (substitute x e e1)
+    Exp.Negate e1 -> Exp.Negate (substitute x e e1)
+    Exp.Binary o e1 e2 -> Exp.Binary o (substitute x e e1) (substitute x e e2)
     Exp.Parenthetical e1 -> Exp.Parenthetical (substitute x e e1)
     Exp.Id y -> if y == x
-        then e
+        then Exp.Parenthetical e
         else Exp.Id y
-    Exp.FCall f args -> Exp.FCall f (map (\e1 -> Exp.Parenthetical (substitute x e e1)) args)
+    Exp.FCall f args -> Exp.FCall f (map (\e1 -> substitute x e e1) args)
     Exp.Num n -> Exp.Num n
+    Exp.Boolean b -> Exp.Boolean b
 substitute_args :: [Exp.Expression] -> [Exp.Expression] -> Exp.Expression -> Exp.Expression
 substitute_args [] [] expr = expr
 substitute_args (a1 : argvars) (a2 : arglist) expr = case a1 of
@@ -37,14 +40,17 @@ substitute_args (a1 : argvars) (a2 : arglist) expr = case a1 of
     _ -> expr
 substitute_function :: [Char] -> [Exp.Expression] -> Exp.Expression -> Exp.Expression -> Exp.Expression
 substitute_function f args e expr = case expr of
+    Exp.Factorial e1 -> Exp.Factorial (Exp.Parenthetical (substitute_function f args e e1))
+    Exp.Not e1 -> Exp.Not (Exp.Parenthetical (substitute_function f args e e1))
     Exp.Negate e1 -> Exp.Negate (Exp.Parenthetical (substitute_function f args e e1))
-    Exp.Binary o e1 e2 -> Exp.Parenthetical (Exp.Binary o (substitute_function f args e e1) (substitute_function f args e e2))
+    Exp.Binary o e1 e2 -> Exp.Binary o (substitute_function f args e e1) (substitute_function f args e e2)
     Exp.Parenthetical e1 -> Exp.Parenthetical (substitute_function f args e e1)
     Exp.Id x -> Exp.Id x
     Exp.FCall g args' -> if g == f 
         then Exp.Parenthetical (substitute_args args args' e)
         else Exp.FCall g args'
     Exp.Num n -> Exp.Num n
+    Exp.Boolean b -> Exp.Boolean b
 
 remove_parens :: Exp.Expression -> Exp.Expression
 remove_parens expr = case expr of
@@ -58,9 +64,15 @@ remove_parens expr = case expr of
         Exp.Id x -> Exp.Id x
         Exp.Num n -> Exp.Num n
         Exp.Boolean b -> Exp.Boolean b
-        e' -> Exp.Parenthetical e'
+        e' -> Exp.Parenthetical (remove_parens e')
     Exp.FCall f args -> Exp.FCall f (map remove_parens args)
     Exp.Id x -> Exp.Id x
     Exp.Num n -> Exp.Num n
     Exp.Boolean b -> Exp.Boolean b
+
+remove_all_parens :: Exp.Expression -> Exp.Expression
+remove_all_parens expr = 
+    if remove_parens expr == expr
+        then expr
+        else remove_all_parens (remove_parens expr)
 
