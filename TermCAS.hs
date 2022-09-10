@@ -99,10 +99,14 @@ repl n context = do
                     repl n context
             Com.EvalExp e -> do 
                 let depth = ConUtils.depth (ConUtils.get_dep_tree e context)
-                let new_expr = ConUtils.apply_all e depth context
-                putStrLn $ "      Out: " ++ show new_expr
-                putStrLn $ "      Out: " ++ show (ExpUtils.remove_all_parens new_expr)
-                repl n context
+                let new_expr = ExpUtils.remove_all_parens (ConUtils.apply_all e depth context)
+                case ConUtils.get_dependencies new_expr of
+                    [] -> do
+                        putStrLn $ "      Out: " ++ show new_expr
+                        repl n context
+                    (h : t) -> do
+                        putStrLn $ "      Err: Missing dependency " ++ show h ++ ": " ++ show Handlers.MissingDependencyError
+                        repl n context
             Com.EvalSet set -> do
                 putStrLn $ "      Out: " ++ show set
                 repl n context

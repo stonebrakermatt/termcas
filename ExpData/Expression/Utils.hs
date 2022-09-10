@@ -52,6 +52,7 @@ substitute_function f args e expr = case expr of
     Exp.Num n -> Exp.Num n
     Exp.Boolean b -> Exp.Boolean b
 
+{- Utilities for removing unnecessary parentheses -}
 remove_parens :: Exp.Expression -> Exp.Expression
 remove_parens expr = case expr of
     Exp.Factorial e -> Exp.Factorial $ remove_parens e
@@ -69,10 +70,13 @@ remove_parens expr = case expr of
     Exp.Id x -> Exp.Id x
     Exp.Num n -> Exp.Num n
     Exp.Boolean b -> Exp.Boolean b
-
+remove_outer_parens :: Exp.Expression -> Exp.Expression
+remove_outer_parens expr = case expr of 
+    Exp.Parenthetical e -> e
+    _ -> expr
 remove_all_parens :: Exp.Expression -> Exp.Expression
 remove_all_parens expr = 
     if remove_parens expr == expr
-        then expr
-        else remove_all_parens (remove_parens expr)
+        then remove_outer_parens expr
+        else remove_outer_parens (remove_all_parens (remove_parens expr))
 
